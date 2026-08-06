@@ -1,3 +1,5 @@
+foundry-local-sdk-winml
+openai
 pdfplumber
 python-docx
 numpy

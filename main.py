@@ -3,6 +3,7 @@ from pathlib import Path
 from src.chunker import TextChunker
 from src.database import ChunkDatabase
 from src.document_loader import DocumentLoader
+from src.embedding import LocalEmbeddingService
 
 
 def get_category(document_path: str) -> str:
@@ -11,7 +12,9 @@ def get_category(document_path: str) -> str:
     if "documents" not in path_parts:
         return "unknown"
 
-    documents_index = path_parts.index("documents")
+    documents_index = path_parts.index(
+        "documents"
+    )
 
     if documents_index + 1 >= len(path_parts):
         return "unknown"
@@ -31,6 +34,8 @@ def main() -> None:
         "data/academic_assistant.db"
     )
 
+    embedding_service = None
+
     try:
         documents = loader.load_documents()
 
@@ -39,7 +44,7 @@ def main() -> None:
             f"{len(documents)} document(s) loaded.\n"
         )
 
-        saved_chunks = 0
+        total_chunks = 0
 
         for document in documents:
             chunks = chunker.chunk_document(
@@ -59,7 +64,7 @@ def main() -> None:
                 )
             )
 
-            saved_chunks += saved_count
+            total_chunks += saved_count
 
             print(
                 f"{document['name']} "
@@ -69,27 +74,62 @@ def main() -> None:
 
         print("=" * 60)
         print(
-            f"{saved_chunks} chunk(s) processed."
+            f"{total_chunks} chunk(s) stored."
         )
+
+        chunks_to_embed = (
+            database.get_chunks_without_embeddings()
+        )
+
         print(
-            f"{database.count_chunks()} "
-            f"chunk(s) currently stored in SQLite."
+            f"{len(chunks_to_embed)} chunk(s) "
+            f"need embeddings."
         )
 
-        print("\nStored documents:")
-
-        for (
-            document_name,
-            category,
-            chunk_count,
-        ) in database.list_documents():
-            print(
-                f"- {document_name} "
-                f"[{category}] "
-                f"({chunk_count} chunk(s))"
+        if chunks_to_embed:
+            embedding_service = (
+                LocalEmbeddingService()
             )
 
+            embedding_service.initialize()
+
+            for position, chunk in enumerate(
+                chunks_to_embed,
+                start=1,
+            ):
+                print(
+                    f"[{position}/{len(chunks_to_embed)}] "
+                    f"Embedding: "
+                    f"{chunk['document_name']} "
+                    f"chunk {chunk['chunk_index'] + 1}"
+                )
+
+                vector = (
+                    embedding_service.embed_text(
+                        chunk["text"]
+                    )
+                )
+
+                database.save_embedding(
+                    chunk_id=chunk["id"],
+                    embedding=vector,
+                )
+
+        print("=" * 60)
+        print(
+            f"Chunks in SQLite: "
+            f"{database.count_chunks()}"
+        )
+
+        print(
+            f"Embeddings in SQLite: "
+            f"{database.count_embeddings()}"
+        )
+
     finally:
+        if embedding_service is not None:
+            embedding_service.close()
+
         database.close()
 
 

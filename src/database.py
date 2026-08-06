@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -12,6 +13,7 @@ class ChunkDatabase:
         database_path: str = "data/academic_assistant.db",
     ) -> None:
         self.database_path = Path(database_path)
+
         self.database_path.parent.mkdir(
             parents=True,
             exist_ok=True,
@@ -21,6 +23,12 @@ class ChunkDatabase:
             self.database_path
         )
 
+        self.connection.row_factory = sqlite3.Row
+
+        self._create_table()
+        self._ensure_embedding_column()
+
+    def _create_table(self) -> None:
         self.connection.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
@@ -29,6 +37,7 @@ class ChunkDatabase:
                 category TEXT NOT NULL,
                 chunk_index INTEGER NOT NULL,
                 text TEXT NOT NULL,
+                embedding TEXT,
                 created_at TEXT NOT NULL
                     DEFAULT CURRENT_TIMESTAMP
             )
@@ -44,6 +53,26 @@ class ChunkDatabase:
         )
 
         self.connection.commit()
+
+    def _ensure_embedding_column(self) -> None:
+        columns = self.connection.execute(
+            "PRAGMA table_info(chunks)"
+        ).fetchall()
+
+        column_names = {
+            column["name"]
+            for column in columns
+        }
+
+        if "embedding" not in column_names:
+            self.connection.execute(
+                """
+                ALTER TABLE chunks
+                ADD COLUMN embedding TEXT
+                """
+            )
+
+            self.connection.commit()
 
     def replace_document_chunks(
         self,
@@ -66,9 +95,10 @@ class ChunkDatabase:
                     document_name,
                     category,
                     chunk_index,
-                    text
+                    text,
+                    embedding
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, NULL)
                 """,
                 [
                     (
@@ -83,6 +113,45 @@ class ChunkDatabase:
 
         return len(chunks)
 
+    def get_chunks_without_embeddings(
+        self,
+    ) -> list[sqlite3.Row]:
+        return self.connection.execute(
+            """
+            SELECT
+                id,
+                document_name,
+                category,
+                chunk_index,
+                text
+            FROM chunks
+            WHERE embedding IS NULL
+            ORDER BY id
+            """
+        ).fetchall()
+
+    def save_embedding(
+        self,
+        chunk_id: int,
+        embedding: list[float],
+    ) -> None:
+        serialized_embedding = json.dumps(
+            embedding
+        )
+
+        with self.connection:
+            self.connection.execute(
+                """
+                UPDATE chunks
+                SET embedding = ?
+                WHERE id = ?
+                """,
+                (
+                    serialized_embedding,
+                    chunk_id,
+                ),
+            )
+
     def count_chunks(self) -> int:
         row = self.connection.execute(
             """
@@ -91,10 +160,23 @@ class ChunkDatabase:
             """
         ).fetchone()
 
-        return int(row[0])
+        return int(row["total"])
 
-    def list_documents(self) -> list[tuple[str, str, int]]:
-        rows = self.connection.execute(
+    def count_embeddings(self) -> int:
+        row = self.connection.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM chunks
+            WHERE embedding IS NOT NULL
+            """
+        ).fetchone()
+
+        return int(row["total"])
+
+    def list_documents(
+        self,
+    ) -> list[sqlite3.Row]:
+        return self.connection.execute(
             """
             SELECT
                 document_name,
@@ -105,8 +187,6 @@ class ChunkDatabase:
             ORDER BY document_name
             """
         ).fetchall()
-
-        return rows
 
     def close(self) -> None:
         self.connection.close()
