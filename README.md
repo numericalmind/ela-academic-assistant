@@ -146,29 +146,37 @@ Then open your browser and navigate to:
 http://localhost:8501
 ```
 
-## 📸 Screenshots
+## 📷 Screenshots
 
 ### 🏠 Home Page
 
-<img src="images/home.png" width="900"/>
+![Home Page](images/home.png)
 
 ---
 
-### 📄 Erasmus Checklist
+### 📄 Erasmus Internship Checklist
 
-<img src="images/erasmus-checklist.png" width="900"/>
+![Erasmus Checklist](images/erasmus-checklist.png)
 
 ---
 
 ### 🎓 Mathematics Curriculum
 
-<img src="images/mathematics-curriculum.png" width="900"/>
+![Mathematics Curriculum](images/mathematics-curriculum.png)
 
 ---
 
 ### 💻 Double Major Course Exemptions
 
-<img src="images/double-major.png" width="900"/>
+![Double Major Part 1](images/double-major-1.png)
+
+![Double Major Part 2](images/double-major-2.png)
+
+---
+
+### 🔬 TÜBİTAK 2209-A Information
+
+![TUBITAK 2209-A](images/tubitak2209.png)
 
 ## 🔮 Future Improvements
 
