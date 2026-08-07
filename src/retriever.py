@@ -31,7 +31,9 @@ class SemanticRetriever:
         normalized_query = str(query or "").strip()
 
         if not normalized_query:
-            raise ValueError("Query cannot be empty.")
+            raise ValueError(
+                "Query cannot be empty."
+            )
 
         if top_k <= 0:
             raise ValueError(
@@ -60,6 +62,17 @@ class SemanticRetriever:
                 stored_embedding,
             )
 
+            lexical_bonus = (
+                self._calculate_lexical_bonus(
+                    normalized_query,
+                    chunk["text"],
+                )
+            )
+
+            final_score = (
+                similarity + lexical_bonus
+            )
+
             results.append(
                 {
                     "id": chunk["id"],
@@ -71,7 +84,7 @@ class SemanticRetriever:
                         "chunk_index"
                     ],
                     "text": chunk["text"],
-                    "score": similarity,
+                    "score": final_score,
                 }
             )
 
@@ -82,7 +95,54 @@ class SemanticRetriever:
 
         return results[:top_k]
 
-    def _load_chunks(self) -> list[sqlite3.Row]:
+    def get_document_chunks(
+        self,
+        document_name: str,
+    ) -> list[dict]:
+        connection = sqlite3.connect(
+            self.database_path
+        )
+
+        connection.row_factory = sqlite3.Row
+
+        try:
+            rows = connection.execute(
+                """
+                SELECT
+                    id,
+                    document_name,
+                    category,
+                    chunk_index,
+                    text
+                FROM chunks
+                WHERE document_name = ?
+                ORDER BY chunk_index
+                """,
+                (document_name,),
+            ).fetchall()
+
+            return [
+                {
+                    "id": row["id"],
+                    "document_name": row[
+                        "document_name"
+                    ],
+                    "category": row["category"],
+                    "chunk_index": row[
+                        "chunk_index"
+                    ],
+                    "text": row["text"],
+                    "score": 0.0,
+                }
+                for row in rows
+            ]
+
+        finally:
+            connection.close()
+
+    def _load_chunks(
+        self,
+    ) -> list[sqlite3.Row]:
         connection = sqlite3.connect(
             self.database_path
         )
@@ -116,6 +176,35 @@ class SemanticRetriever:
             connection.close()
 
     @staticmethod
+    def _calculate_lexical_bonus(
+        query: str,
+        text: str,
+    ) -> float:
+        query_lower = query.lower()
+        text_lower = text.lower()
+
+        bonus = 0.0
+
+        important_phrases = (
+            "beşinci yarıyıl",
+            "altıncı yarıyıl",
+            "yedinci yarıyıl",
+            "sekizinci yarıyıl",
+            "gitmeden önce",
+            "proje ortağı",
+            "davet mektubu",
+        )
+
+        for phrase in important_phrases:
+            if (
+                phrase in query_lower
+                and phrase in text_lower
+            ):
+                bonus += 0.25
+
+        return bonus
+
+    @staticmethod
     def _cosine_similarity(
         first_vector: np.ndarray,
         second_vector: np.ndarray,
@@ -134,6 +223,9 @@ class SemanticRetriever:
             return 0.0
 
         return float(
-            np.dot(first_vector, second_vector)
+            np.dot(
+                first_vector,
+                second_vector,
+            )
             / denominator
         )

@@ -1,5 +1,26 @@
+# Virtual Environment
 .venv/
+venv/
+
+# Python
 __pycache__/
-*.pyc
-data/*.db
+*.py[cod]
+*$py.class
+
+# Environment
 .env
+
+# Streamlit
+.streamlit/secrets.toml
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Database
+data/*.db

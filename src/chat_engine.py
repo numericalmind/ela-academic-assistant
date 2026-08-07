@@ -5,9 +5,10 @@ from foundry_local_sdk import (
     FoundryLocalManager,
 )
 
+from src.answer_builder import build_extractive_list
 from src.embedding import LocalEmbeddingService
 from src.retriever import SemanticRetriever
-from src.answer_builder import build_extractive_list
+
 
 FALLBACK_ANSWER = (
     "Bu bilgi yüklenen belgelerde bulunamadı."
@@ -19,7 +20,7 @@ class AcademicChatEngine:
         self,
         chat_model_alias: str = "phi-3.5-mini",
         database_path: str = "data/academic_assistant.db",
-        top_k: int = 3,
+        top_k: int = 6,
     ) -> None:
         self.chat_model_alias = chat_model_alias
         self.database_path = database_path
@@ -53,10 +54,9 @@ class AcademicChatEngine:
 
         try:
             FoundryLocalManager.initialize(config)
-        except Exception:
-            # Manager was probably initialized earlier
-            # by the embedding service.
-            pass
+        except Exception as error:
+            if "already been initialized" not in str(error):
+                raise
 
         manager = FoundryLocalManager.instance
 
@@ -88,9 +88,11 @@ class AcademicChatEngine:
         self.chat_client = (
             self.chat_model.get_chat_client()
         )
+
         self.chat_client.settings.temperature = 0.0
         self.chat_client.settings.top_p = 0.8
         self.chat_client.settings.max_tokens = 350
+
         print("Academic chat engine is ready.")
 
     def answer(
@@ -116,7 +118,7 @@ class AcademicChatEngine:
 
         results = self.retriever.search(
             normalized_question,
-            top_k=2,
+            top_k=self.top_k,
         )
 
         if (
@@ -127,9 +129,79 @@ class AcademicChatEngine:
                 "answer": FALLBACK_ANSWER,
                 "sources": [],
             }
+
+        extractive_results = results
+        question_lower = normalized_question.lower()
+
+        is_erasmus_checklist_question = (
+            (
+                "erasmus" in question_lower
+                or "staj" in question_lower
+            )
+            and (
+                "gitmeden önce" in question_lower
+                or "hangi belgeler" in question_lower
+                or "hangi evraklar" in question_lower
+                or "hazırlanmalıdır" in question_lower
+                or "hazırlamalıyım" in question_lower
+            )
+        )
+
+        if is_erasmus_checklist_question:
+            checklist_document = next(
+                (
+                    result["document_name"]
+                    for result in results
+                    if "checklist"
+                    in result["document_name"].lower()
+                ),
+                None,
+            )
+
+            if checklist_document:
+                extractive_results = (
+                    self.retriever.get_document_chunks(
+                        checklist_document
+                    )
+                )
+
+        is_double_major_question = (
+            (
+                "çift anadal" in question_lower
+                or "cift anadal" in question_lower
+                or "çap" in question_lower
+            )
+            and (
+                "muaf" in question_lower
+                or "muafiyet" in question_lower
+            )
+        )
+
+        if is_double_major_question:
+            double_major_document = next(
+                (
+                    result["document_name"]
+                    for result in results
+                    if (
+                        "cift_anadal"
+                        in result["document_name"].lower()
+                        or "bilgisayarmuhmatematik"
+                        in result["document_name"].lower()
+                    )
+                ),
+                None,
+            )
+
+            if double_major_document:
+                extractive_results = (
+                    self.retriever.get_document_chunks(
+                        double_major_document
+                    )
+                )
+
         extractive_answer = build_extractive_list(
             normalized_question,
-            results,
+            extractive_results,
         )
 
         if extractive_answer:
@@ -139,7 +211,10 @@ class AcademicChatEngine:
                     results
                 ),
             }
-        context = self._build_context(results)
+
+        context = self._build_context(
+            results
+        )
 
         messages = [
             {
@@ -147,11 +222,10 @@ class AcademicChatEngine:
                 "content": (
                     "Sen bir akademik belge asistanısın. "
                     "Soruyu yalnızca verilen belge metnine göre cevapla. "
-                    "Belgede açıkça listelenen tüm gerekli unsurları çıkar; "
-                    "hiçbirini atlama ve belge dışı bilgi ekleme. "
-                    "Çıktıda yalnızca tire ile başlayan kısa maddeler yaz. "
-                    "Soru, Cevap, Giriş, Sonuç veya Kaynaklar gibi "
-                    "başlıklar kullanma. Aynı bilgiyi tekrar etme."
+                    "Belgede açıkça belirtilen bilgileri kullan. "
+                    "Belge dışı bilgi ekleme. "
+                    "Kısa ve açık cevap ver. "
+                    "Aynı bilgiyi tekrar etme."
                 ),
             },
             {
@@ -159,15 +233,26 @@ class AcademicChatEngine:
                 "content": (
                     f"{context}\n\n"
                     f"Soru: {normalized_question}\n\n"
-                    "Belgede belirtilen tüm gerekli unsurları "
-                    "yalnızca madde işaretleriyle yaz."
+                    "Yalnızca doğrudan cevabı yaz."
                 ),
             },
         ]
 
-        response = self.chat_client.complete_chat(
-            messages
-        )
+        try:
+            response = self.chat_client.complete_chat(
+                messages
+            )
+
+        except Exception:
+            return {
+                "answer": (
+                    "Model cevap üretirken bir hata oluştu. "
+                    "Lütfen tekrar deneyin."
+                ),
+                "sources": self._build_sources(
+                    results
+                ),
+            }
 
         answer = (
             response.choices[0]
@@ -217,7 +302,9 @@ class AcademicChatEngine:
                 )
             )
 
-        return "\n\n".join(sections)
+        return "\n\n".join(
+            sections
+        )
 
     def _build_sources(
         self,
@@ -225,9 +312,7 @@ class AcademicChatEngine:
     ) -> list[dict]:
         return [
             {
-                "document_name": result[
-                    "document_name"
-                ],
+                "document_name": result["document_name"],
                 "category": result["category"],
                 "chunk_index": (
                     result["chunk_index"] + 1

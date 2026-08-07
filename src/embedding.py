@@ -21,7 +21,12 @@ class LocalEmbeddingService:
             log_level="info",
         )
 
-        FoundryLocalManager.initialize(config)
+        try:
+            FoundryLocalManager.initialize(config)
+        except Exception as error:
+            if "already been initialized" not in str(error):
+                raise
+
         manager = FoundryLocalManager.instance
 
         print(
@@ -51,6 +56,7 @@ class LocalEmbeddingService:
         )
 
         print("\nLoading embedding model...")
+
         self.model.load()
 
         self.client = (
@@ -59,13 +65,18 @@ class LocalEmbeddingService:
 
         print("Embedding model is ready.")
 
-    def embed_text(self, text: str) -> list[float]:
+    def embed_text(
+        self,
+        text: str,
+    ) -> list[float]:
         if self.client is None:
             raise RuntimeError(
                 "Embedding service is not initialized."
             )
 
-        normalized_text = str(text or "").strip()
+        normalized_text = str(
+            text or ""
+        ).strip()
 
         if not normalized_text:
             raise ValueError(
