@@ -20,6 +20,17 @@ ERASMUS_CHECKLIST_PATTERNS = (
     "hazırlamalıyım",
 )
 
+TUBITAK_2209_CONDITION_PATTERNS = (
+    "şartlar",
+    "şartları",
+    "koşullar",
+    "koşulları",
+    "başvuru şartları",
+    "başvuru koşulları",
+    "kimler başvurabilir",
+    "gereken şartlar",
+)
+
 COURSE_QUESTION_PATTERNS = (
     "yarıyıl",
     "dersleri",
@@ -66,7 +77,18 @@ def build_extractive_list(
         if answer:
             return answer
 
-    # 4. Diğer liste soruları
+    # 4. TÜBİTAK 2209-A başvuru koşulları
+    if _is_2209_application_conditions_question(
+        normalized_question
+    ):
+        answer = _build_2209_application_conditions(
+            results
+        )
+
+        if answer:
+            return answer
+
+    # 5. Diğer liste soruları
     if _is_general_list_question(
         normalized_question
     ):
@@ -102,6 +124,26 @@ def _is_erasmus_checklist_question(
     return (
         has_erasmus
         and has_checklist_intent
+    )
+
+
+def _is_2209_application_conditions_question(
+    question: str,
+) -> bool:
+    has_2209 = (
+        "2209-a" in question
+        or "2209 a" in question
+        or "2209a" in question
+    )
+
+    has_condition_intent = any(
+        pattern in question
+        for pattern in TUBITAK_2209_CONDITION_PATTERNS
+    )
+
+    return (
+        has_2209
+        and has_condition_intent
     )
 
 
@@ -279,7 +321,7 @@ def _build_double_major_exemptions(
             "MAT 3059 Numerical Analysis I",
         ),
         (
-            "TDL 1002 Türk Dili II",
+            "TDL 1002 Türk DİLİ II",
             "TDL 1002 Türk Dili II",
         ),
         (
@@ -354,6 +396,7 @@ def _build_double_major_exemptions(
         source_code = " ".join(
             source.split()[0:2]
         )
+
         equivalent_code = " ".join(
             equivalent.split()[0:2]
         )
@@ -395,7 +438,135 @@ def _build_double_major_exemptions(
     if not sections:
         return None
 
-    return "\n\n".join(sections)
+    return "\n\n".join(
+        sections
+    )
+
+
+def _build_2209_application_conditions(
+    results: list[dict],
+) -> str | None:
+    relevant_results = [
+        result
+        for result in results
+        if "2209-a" in result["document_name"].lower()
+    ]
+
+    if not relevant_results:
+        return None
+
+    combined_text = _combine_results(
+        relevant_results
+    )
+
+    normalized_text = re.sub(
+        r"\s+",
+        " ",
+        combined_text,
+    )
+
+    section_match = re.search(
+        r"4\.1\.\s*Başvuru Koşulları"
+        r"(.*?)"
+        r"4\.2\.\s*Başvuru Belgeleri",
+        normalized_text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    if not section_match:
+        return None
+
+    section = section_match.group(1)
+
+    condition_matches = re.findall(
+        r"4\.1\.(\d+)\.\s*(.*?)"
+        r"(?=4\.1\.\d+\.|$)",
+        section,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    if not condition_matches:
+        return None
+
+    conditions: dict[str, str] = {}
+
+    for number, condition_text in condition_matches:
+        if number in conditions:
+            continue
+
+        cleaned_text = re.sub(
+            r"\s+",
+            " ",
+            condition_text,
+        ).strip()
+
+        cleaned_text = re.split(
+            r"\*\s*Açık Öğretim",
+            cleaned_text,
+            maxsplit=1,
+            flags=re.IGNORECASE,
+        )[0].strip()
+
+        cleaned_text = re.sub(
+            r"\s+\d+\s+2209-A\s+Üniversite Öğrencileri.*$",
+            "",
+            cleaned_text,
+            flags=re.IGNORECASE,
+        ).strip()
+        # PDF dipnot işaretlerini temizle.
+        cleaned_text = cleaned_text.replace(
+            "**",
+            ""
+        ).replace(
+            "*",
+            ""
+        )
+
+        # Chunk overlap nedeniyle 4.1.6 sonuna
+        # önceki maddeden tekrar eden cümleyi temizle.
+        if number == "6":
+            cleaned_text = re.sub(
+                r"\.\s*proje yürütücüsü dışında "
+                r"en fazla 4 proje ortağı yer alabilir.*$",
+                ".",
+                cleaned_text,
+                flags=re.IGNORECASE,
+            )
+        cleaned_text = cleaned_text.strip(
+            " ,.;:-*"
+        )
+
+        if cleaned_text:
+            conditions[number] = cleaned_text
+
+    if not conditions:
+        return None
+
+    items = [
+        f"- {conditions[number]}"
+        for number in sorted(conditions, key=int)
+    ]
+
+    if (
+        "Açık Öğretim ve Hazırlık Sınıfı öğrencileri"
+        in normalized_text
+    ):
+        items.append(
+            "- Açık Öğretim ve Hazırlık Sınıfı öğrencileri "
+            "projede yürütücü veya proje ortağı olarak yer alamaz."
+        )
+
+    if (
+        "Akademik danışmanın güncel YÖK kaydının olması zorunludur"
+        in normalized_text
+    ):
+        items.append(
+            "- Akademik danışmanın güncel YÖK kaydının "
+            "olması zorunludur."
+        )
+
+    return "\n".join(items)
+
 
 def _build_erasmus_checklist(
     results: list[dict],

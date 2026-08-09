@@ -131,7 +131,15 @@ class AcademicChatEngine:
             }
 
         extractive_results = results
-        question_lower = normalized_question.lower()
+        source_results = results
+
+        question_lower = (
+            normalized_question.lower()
+        )
+
+        # -------------------------------------------------
+        # Erasmus checklist routing
+        # -------------------------------------------------
 
         is_erasmus_checklist_question = (
             (
@@ -164,6 +172,17 @@ class AcademicChatEngine:
                         checklist_document
                     )
                 )
+
+                source_results = [
+                    result
+                    for result in results
+                    if result["document_name"]
+                    == checklist_document
+                ]
+
+        # -------------------------------------------------
+        # Double Major routing
+        # -------------------------------------------------
 
         is_double_major_question = (
             (
@@ -199,6 +218,59 @@ class AcademicChatEngine:
                     )
                 )
 
+                source_results = [
+                    result
+                    for result in results
+                    if result["document_name"]
+                    == double_major_document
+                ]
+
+        # -------------------------------------------------
+        # TÜBİTAK 2209-A application conditions routing
+        # -------------------------------------------------
+
+        is_2209_conditions_question = (
+            (
+                "2209-a" in question_lower
+                or "2209 a" in question_lower
+                or "2209a" in question_lower
+            )
+            and (
+                "şart" in question_lower
+                or "koşul" in question_lower
+                or "kimler başvurabilir" in question_lower
+            )
+        )
+
+        if is_2209_conditions_question:
+            tubitak_document = next(
+                (
+                    result["document_name"]
+                    for result in results
+                    if "2209-a"
+                    in result["document_name"].lower()
+                ),
+                None,
+            )
+
+            if tubitak_document:
+                extractive_results = (
+                    self.retriever.get_document_chunks(
+                        tubitak_document
+                    )
+                )
+
+                source_results = [
+                    result
+                    for result in results
+                    if result["document_name"]
+                    == tubitak_document
+                ]
+
+        # -------------------------------------------------
+        # Extractive answer
+        # -------------------------------------------------
+
         extractive_answer = build_extractive_list(
             normalized_question,
             extractive_results,
@@ -208,9 +280,13 @@ class AcademicChatEngine:
             return {
                 "answer": extractive_answer,
                 "sources": self._build_sources(
-                    results
+                    source_results
                 ),
             }
+
+        # -------------------------------------------------
+        # General RAG / LLM answer
+        # -------------------------------------------------
 
         context = self._build_context(
             results
@@ -312,7 +388,9 @@ class AcademicChatEngine:
     ) -> list[dict]:
         return [
             {
-                "document_name": result["document_name"],
+                "document_name": result[
+                    "document_name"
+                ],
                 "category": result["category"],
                 "chunk_index": (
                     result["chunk_index"] + 1
