@@ -178,6 +178,12 @@ http://localhost:8501
 
 ![TUBITAK 2209-A](images/tubitak2209.png)
 
+## 🎥 Project Demo
+
+A short presentation of Ela Academic Assistant, covering the project motivation, RAG workflow, development process, debugging experience, and key learnings.
+
+▶️ [Watch the Project Presentation](presentation/Ela-Academic-Assistant-Demo.mp4)
+
 ## 🔮 Future Improvements
 
 - Hybrid search (Semantic + Keyword)
