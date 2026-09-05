@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="images/banner.png" alt="Ela Academic Assistant Banner" width="100%">
-</p>
-
 # Ela Academic Assistant
 
 A fully local **Retrieval-Augmented Generation (RAG)** application built with **Microsoft Foundry Local**, **Streamlit**, and **SQLite** for answering questions over academic documents.
