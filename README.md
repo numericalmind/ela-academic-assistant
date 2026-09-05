@@ -2,26 +2,26 @@
   <img src="images/banner.png" alt="Ela Academic Assistant Banner" width="100%">
 </p>
 
-# 🎓 Ela Academic Assistant
+# Ela Academic Assistant
 
 A fully local **Retrieval-Augmented Generation (RAG)** application built with **Microsoft Foundry Local**, **Streamlit**, and **SQLite** for answering questions over academic documents.
 
 The assistant performs semantic search on PDF and DOCX files, retrieves the most relevant document chunks, and generates grounded answers using a locally running language model.
 
 
-## ✨ Features
+## Features
 
-- 📄 Ask questions about academic PDF and DOCX documents
-- 🔍 Semantic search using vector embeddings
-- 🧠 Fully local AI inference with Microsoft Foundry Local
-- 📚 Source-aware answers with document references
-- 💾 SQLite vector database
-- ⚡ Interactive Streamlit interface
-- 🎯 Custom extractive parsers for structured university documents
-- 🔒 Works completely offline after setup
+- Ask questions about academic PDF and DOCX documents
+- Semantic search using vector embeddings
+- Fully local AI inference with Microsoft Foundry Local
+- Source-aware answers with document references
+- SQLite vector database
+- Interactive Streamlit interface
+- Custom extractive parsers for structured university documents
+- Works completely offline after setup
 
 
-## 🛠️ Technologies
+## Technologies
 
 - Python
 - Microsoft Foundry Local SDK
@@ -31,7 +31,7 @@ The assistant performs semantic search on PDF and DOCX files, retrieves the most
 - PDFPlumber
 - python-docx
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```text
 User Question
@@ -58,7 +58,7 @@ Phi-3.5 Mini (Foundry Local)
 Final Answer
 ```
 
-## 💬 Example Questions
+## Example Questions
 
 Here are some example questions the assistant can answer:
 
@@ -68,7 +68,7 @@ Here are some example questions the assistant can answer:
 - What are the eligibility requirements for TÜBİTAK 2209-A?
 - Which Computer Engineering courses are exempt in the Double Major Program?
 
-## 📂 Project Structure
+## Project Structure
 
 ```text
 Ela-Academic-Assistant
@@ -92,7 +92,7 @@ Ela-Academic-Assistant
     └── retriever.py
 ```
 
-## ⚙️ Installation
+## Installation
 
 ### 1. Clone the repository
 
@@ -132,7 +132,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 🚀 Usage
+## Usage
 
 Run the Streamlit application:
 
@@ -146,27 +146,27 @@ Then open your browser and navigate to:
 http://localhost:8501
 ```
 
-## 📷 Screenshots
+## Screenshots
 
-### 🏠 Home Page
+### Home Page
 
 ![Home Page](images/home.png)
 
 ---
 
-### 📄 Erasmus Internship Checklist
+### Erasmus Internship Checklist
 
 ![Erasmus Checklist](images/erasmus-checklist.png)
 
 ---
 
-### 🎓 Mathematics Curriculum
+### Mathematics Curriculum
 
 ![Mathematics Curriculum](images/mathematics-curriculum.png)
 
 ---
 
-### 💻 Double Major Course Exemptions
+### Double Major Course Exemptions
 
 ![Double Major Part 1](images/double-major-1.png)
 
@@ -174,17 +174,17 @@ http://localhost:8501
 
 ---
 
-### 🔬 TÜBİTAK 2209-A Information
+### TÜBİTAK 2209-A Information
 
 ![TUBITAK 2209-A](images/tubitak2209.png)
 
-## 🎥 Project Demo
+## Project Demo
 
 A short presentation of Ela Academic Assistant, covering the project motivation, RAG workflow, development process, debugging experience, and key learnings.
 
 ▶️ [Watch the Project Presentation](presentation/Ela-Academic-Assistant-Demo.mp4)
 
-## 🔮 Future Improvements
+## Future Improvements
 
 - Hybrid search (Semantic + Keyword)
 - Conversation memory
@@ -194,7 +194,7 @@ A short presentation of Ela Academic Assistant, covering the project motivation,
 - Highlighting cited passages in documents
 - Support for additional document formats
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.
 
